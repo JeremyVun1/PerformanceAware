@@ -1,0 +1,4 @@
+Because instructions are variable size, we have to sequentially stream the decoding
+
+- MOD determines displacement size
+- d bit used to determine wheter dst reg bytes are.
