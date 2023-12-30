@@ -26,6 +26,7 @@ fn get_data(file_iter: &mut IntoIter<u8>, w: bool) -> u16 {
 }
 
 pub fn decode_mov_immediate_to_reg_mem(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> String {
+    println!("immediate to reg mem");
     let w = get_first_bit(&curr_byte);
 
     let byte_2 = file_iter.next().unwrap();
@@ -39,9 +40,13 @@ pub fn decode_mov_immediate_to_reg_mem(curr_byte: u8, file_iter: &mut IntoIter<u
         Mode::RegisterMode => decode_mov_reg_mode(byte_2, file_iter, w)
     };
 
+    let word = match mode {
+        Mode::MemoryMode16 => "word",
+        _ => "byte",
+    };
     let data = get_data(file_iter, w);
 
-    return format!("mov {}, {}", b, data);
+    return format!("mov {}, {} {}", b, word, data);
 }
 
 pub fn decode_mov_regmem_to_segreg(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> String {
@@ -53,11 +58,25 @@ pub fn decode_mov_segreg_to_regmem(curr_byte: u8, file_iter: &mut IntoIter<u8>) 
 }
 
 pub fn decode_mem_to_acc(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> String {
-    return String::new();
+    let w = get_first_bit(&curr_byte);
+    let reg = if w { "AX" } else { "AL" };
+
+    let addr_lo = file_iter.next().unwrap();
+    let addr_high = file_iter.next().unwrap();
+    let addr = ((addr_high as u16) << 8) | addr_lo as u16;
+
+    return format!("mov {}, [{}]", reg, addr);
 }
 
 pub fn decode_acc_to_mem(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> String {
-    return String::new();
+    let w = get_first_bit(&curr_byte);
+    let reg = if w { "AX" } else { "AL" };
+
+    let addr_lo = file_iter.next().unwrap();
+    let addr_high = file_iter.next().unwrap();
+    let addr = ((addr_high as u16) << 8) | addr_lo as u16;
+
+    return format!("mov [{}], {}", addr, reg);
 }
 
 pub fn decode_mov_register(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> String {
@@ -69,6 +88,7 @@ pub fn decode_mov_register(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> Strin
 
     let byte_2 = file_iter.next().unwrap();
     let mode = get_mode(&byte_2);
+    println!("mode: {}", mode);
 
     let (a, b) = match mode {
         Mode::MemoryMode0 => decode_mov_mem_mode_0(byte_2, file_iter, w),
@@ -85,7 +105,6 @@ pub fn decode_mov_register(curr_byte: u8, file_iter: &mut IntoIter<u8>) -> Strin
 }
 
 fn decode_mov_mem_mode_0(reg_byte: u8, file_iter: &mut IntoIter<u8>, w: bool) -> (String, String) {
-    println!("HELLO");
     let rm = reg_byte & 0x7;
     let reg = (reg_byte & 0x38) >> 3;
 
@@ -94,7 +113,10 @@ fn decode_mov_mem_mode_0(reg_byte: u8, file_iter: &mut IntoIter<u8>, w: bool) ->
     // Special case for direct address
     let reg_b: String;
     if rm == 0x6 {
-        reg_b = "DIRECT_ACCESS".to_string();
+        let low_disp = file_iter.next().unwrap();
+        let high_disp = file_iter.next().unwrap();
+        let displacement: i16 = (((high_disp as u16) << 8) | low_disp as u16) as i16;
+        reg_b = format!("[{}]", displacement);
     }
     else {
         reg_b = format!("[{}]", decode_rm(rm));
@@ -104,13 +126,14 @@ fn decode_mov_mem_mode_0(reg_byte: u8, file_iter: &mut IntoIter<u8>, w: bool) ->
 }
 
 fn decode_mov_mem_mode_8(reg_byte: u8, file_iter: &mut IntoIter<u8>, w: bool) -> (String, String) {
+    println!("mem mode 8");
     let rm = reg_byte & 0x7;
     let reg = (reg_byte & 0x38) >> 3;
 
     let low_disp = file_iter.next().unwrap();
 
     let reg_a = decode_register(reg, w);
-    let reg_b = format!("[{} + {}]", decode_rm(rm), low_disp);
+    let reg_b = format!("[{} {:+ }]", decode_rm(rm), low_disp as i8);
 
     return (reg_a, reg_b);
 }
@@ -122,10 +145,10 @@ fn decode_mov_mem_mode_16(reg_byte: u8, file_iter: &mut IntoIter<u8>, w: bool) -
 
     let low_disp = file_iter.next().unwrap();
     let high_disp = file_iter.next().unwrap();
-    let displacement: u16 = ((high_disp as u16) << 8) | low_disp as u16;
+    let displacement: i16 = (((high_disp as u16) << 8) | low_disp as u16) as i16;
 
     let reg_a = decode_register(reg, w);
-    let reg_b = format!("[{} + {}]", decode_rm(rm), displacement);
+    let reg_b = format!("[{} {:+ }]", decode_rm(rm), displacement);
 
     return (reg_a, reg_b);
 }
@@ -191,6 +214,7 @@ fn get_first_bit(byte: &u8) -> bool {
 }
 
 fn get_mode(byte: &u8) -> Mode {
+    println!("{:b}", byte);
     let mode = (byte & 0xC0) >> 6;
 
     return match mode {

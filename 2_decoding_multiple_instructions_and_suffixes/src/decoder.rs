@@ -34,6 +34,7 @@ pub fn decode(file_iter: &mut IntoIter<u8>) -> Vec<String> {
 }
 
 fn get_instruction(byte: &u8 ) -> Instruction {
+    println!("get_instruction byte: {:b}", byte);
     if byte == &142 {
         return Instruction::MovRegMemToSegReg;
     }
@@ -50,9 +51,9 @@ fn get_instruction(byte: &u8 ) -> Instruction {
     }
 
     return match byte >> 1 {
-        0x99 => Instruction::MovImmediateToRegMem,
-        0x80 => Instruction::MovMemToAcc,
-        0x81 => Instruction::MovAccToMem,
+        0x63 => Instruction::MovImmediateToRegMem,
+        0x50 => Instruction::MovMemToAcc,
+        0x51 => Instruction::MovAccToMem,
         _ => panic!("this shouldn't be hit"),
     }
 }
