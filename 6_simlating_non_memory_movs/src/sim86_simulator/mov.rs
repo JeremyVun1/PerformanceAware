@@ -7,7 +7,7 @@ use crate::sim86_wrapper::{
     get_register_name_from_operand
 };
 
-use super::{Simulator8086, write_to_reg, read_from_reg};
+use super::{Simulator8086, write_to_reg, read_from_reg, read_full_reg};
 use super::transition::Transition;
 
 pub fn execute_mov(sim86: &mut Simulator8086, instruction: &instruction) -> Transition {
@@ -34,9 +34,9 @@ pub fn execute_mov(sim86: &mut Simulator8086, instruction: &instruction) -> Tran
 fn reg_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_two: &mut instruction_operand) -> Transition {
     let src_value = read_from_reg(sim86, op_two);
 
-    let value_before = read_from_reg(sim86, op_one);
+    let value_before = read_full_reg(sim86, op_one);
     write_to_reg(sim86, op_one, src_value);
-    let value_after = read_from_reg(sim86, op_one);
+    let value_after = read_full_reg(sim86, op_one);
 
     Transition {
         op: "mov".to_string(),
@@ -50,9 +50,9 @@ fn reg_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_tw
 fn imm_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_two: &mut instruction_operand) -> Transition {
     let src_value = unsafe { op_two.__bindgen_anon_1.Immediate.Value as u16 };
 
-    let value_before = read_from_reg(sim86, op_one);
+    let value_before = read_full_reg(sim86, op_one);
     write_to_reg(sim86, op_one, src_value);
-    let value_after = read_from_reg(sim86, op_one);
+    let value_after = read_full_reg(sim86, op_one);
 
     Transition {
         op: "mov".to_string(),

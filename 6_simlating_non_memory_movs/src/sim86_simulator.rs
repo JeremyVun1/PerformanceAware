@@ -7,12 +7,12 @@ use mov::execute_mov;
 use super::sim86_wrapper::*;
 
 pub struct Simulator8086 {
-    pub registers: [u8; 16],
+    pub registers: [u8; 24],
 }
 
 impl Simulator8086 {
     pub fn new() -> Simulator8086 {
-        Simulator8086 { registers: [0; 16] }
+        Simulator8086 { registers: [0; 24] }
     }
 
     pub fn write_8(&mut self, idx: usize, value: u8) {
@@ -50,7 +50,7 @@ impl fmt::Display for Simulator8086 {
     */
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut lines: Vec<String> = Vec::new();
-        for i in (0..16).step_by(2) {
+        for i in (0..24).step_by(2) {
             let reg_name = match i {
                 0 => "ax",
                 2 => "bx",
@@ -60,12 +60,20 @@ impl fmt::Display for Simulator8086 {
                 10 => "bp",
                 12 => "si",
                 14 => "di",
+                16 => "es",
+                18 => "cs",
+                20 => "ss",
+                22 => "ds",
                 _ => panic!("no reg name for index {}", i)
             };
 
-            lines.push(format!("{}: {:#06x} ({})",
-                reg_name, self.registers[i], self.registers[i]
-            ));
+            let value = ((self.registers[i+1] as u16) << 8) | (self.registers[i] as u16);
+            if value == 0 {
+                continue;
+            }
+
+            let line = format!("{}: {:#06x} ({})", reg_name, value, value);
+            lines.push(line);
         }
 
         write!(f, "{}", lines.join("\n\t"))
@@ -89,6 +97,11 @@ pub fn read_from_reg(sim86: &mut Simulator8086, reg: &mut instruction_operand) -
         RegisterType::RegisterTypeHigh => sim86.read_8(idx+1),
         RegisterType::RegisterTypeFull => sim86.read_16(idx),
     }
+}
+
+pub fn read_full_reg(sim86: &mut Simulator8086, reg: &mut instruction_operand) -> u16 {
+    let idx = unsafe { (reg.__bindgen_anon_1.Register.Index -1) * 2 } as usize;
+    sim86.read_16(idx)
 }
 
 pub fn write_to_reg(sim86: &mut Simulator8086, reg: &mut instruction_operand, value: u16) {

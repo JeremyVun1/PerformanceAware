@@ -23,7 +23,18 @@ impl fmt::Display for Transition {
     */
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} {}, {} ; {}:{:#x}->{:#x}",
-            self.op, self.dst, self.src, self.dst, self.before, self.after 
+            self.op, self.dst, self.src, get_full_register_name(&self.dst), self.before, self.after 
         )
+    }
+}
+
+fn get_full_register_name(reg: &str) -> String {
+    let c1 = reg.chars().nth(1).unwrap();
+    if c1 == 'l' || c1 == 'h' {
+        let c0 = reg.chars().nth(0).unwrap();
+        return format!("{c0}x");
+    }
+    else {
+        return reg.to_string();
     }
 }
