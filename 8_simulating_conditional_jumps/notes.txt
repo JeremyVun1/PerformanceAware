@@ -1,0 +1,32 @@
+additional registers
+
+ip
+flags
+
+mov bx, 50
+sub bx, 50
+// the sub will modify the flags register as well
+
+flags register 
+    - ZF (zero)
+    - PF (parity)
+    - SF (sign)
+    - OF (overflow)
+    - AF ...
+    - DF ...
+    - TF ...
+
+====
+ZF
+====
+if the result of an arithmetic operation is 0,
+    - then set ZF to 1
+    - else set ZF to 0
+
+====
+SF
+====
+for arithmetic operations,
+    set to 1 if most significant bit is 1, else 0
+
+signed vs unsigned are slightly different for MUL
