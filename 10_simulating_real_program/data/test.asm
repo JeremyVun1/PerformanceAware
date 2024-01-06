@@ -7,8 +7,7 @@ mov bp, word [0]
 mov dx, 100
 
 ; rgb values
-mov ax, 0
-mov bx, 0
+mov ax, 65280
 
 mov si, 0
 
@@ -17,10 +16,9 @@ col_loop:
 
 	row_loop:
 		mov word [bp], ax ; rgb
-		mov word [bp + 2], bx ; g
-		mov word [bp + 3], 65535; alpha
-		add ax, 10
-		add bx, 10
+		mov word [bp + 2], 255 ; alpha
+		;add ax, 10
+		;add bx, 10
 		add bp, 4
 
 		sub cx, 1
