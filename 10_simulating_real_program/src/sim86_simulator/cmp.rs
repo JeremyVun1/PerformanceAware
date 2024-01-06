@@ -58,9 +58,9 @@ fn imm_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_tw
     let value_one = read_from_reg(sim86, op_one);
     let value_two = unsafe { op_two.__bindgen_anon_1.Immediate.Value as u16 };
 
-    let cmp_value = value_one - value_two;
+    let cmp_value = value_one as i16 - value_two as i16;
     let before = get_flag(sim86, FlagType::ZF);
-    set_flags(sim86, RegisterType::RegisterTypeFull, cmp_value);
+    set_flags(sim86, RegisterType::RegisterTypeFull, cmp_value as u16);
     let after = get_flag(sim86, FlagType::ZF);
 
     Transition {

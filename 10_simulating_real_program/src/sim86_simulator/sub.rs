@@ -1,3 +1,5 @@
+use std::num::Wrapping;
+
 use crate::sim86_wrapper::{
     instruction, instruction_operand, get_register_name_from_operand,
     operand_type_Operand_Register, operand_type_Operand_Immediate, operand_type_Operand_Memory
@@ -6,13 +8,12 @@ use crate::sim86_wrapper::{
 use super::{
     Simulator8086, transition::Transition,
     read_from_reg, read_full_reg,
-    write_to_reg_and_set_flags, set_flags, get_flag,
-    RegisterType, FlagType, FLAG_REG_IDX, set_zero_flag, IP_REG_IDX
+    write_to_reg_and_set_flags, FLAG_REG_IDX, IP_REG_IDX
 };
 
-const OP_CODE: &'static str = "cmp";
+const OP_CODE: &'static str = "sub";
 
-pub fn execute_cmp(sim86: &mut Simulator8086, instruction: &instruction) -> Transition {
+pub fn execute_sub(sim86: &mut Simulator8086, instruction: &instruction) -> Transition {
     let mut op_one = instruction.Operands[0];
     let mut op_two = instruction.Operands[1];
 
@@ -34,20 +35,20 @@ pub fn execute_cmp(sim86: &mut Simulator8086, instruction: &instruction) -> Tran
 }
 
 fn reg_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_two: &mut instruction_operand) -> Transition {
-    let value_one = read_from_reg(sim86, op_one);
-    let value_two = read_from_reg(sim86, op_two);
+    let value_two = Wrapping(read_from_reg(sim86, op_two));
+    let value_before = Wrapping(read_full_reg(sim86, op_one));
+    let new_value = value_before - value_two;
 
-    let cmp_value = value_one as i16 - value_two as i16;
-    let before = get_flag(sim86, FlagType::ZF);
-    set_zero_flag(sim86, cmp_value);
-    let after = get_flag(sim86, FlagType::ZF);
+    write_to_reg_and_set_flags(sim86, op_one, new_value.0);
+
+    let value_after = read_full_reg(sim86, op_one);
 
     Transition {
         op: OP_CODE,
         src: get_register_name_from_operand(op_two).to_string(),
         dst: get_register_name_from_operand(op_one).to_string(),
-        before: before as u16,
-        after: after as u16,
+        before: value_before.0 as u16,
+        after: value_after,
         flags: sim86.read_16(FLAG_REG_IDX),
         ip_before: sim86.read_16(IP_REG_IDX),
         ip_after: sim86.read_16(IP_REG_IDX),
@@ -55,20 +56,20 @@ fn reg_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_tw
 }
 
 fn imm_to_reg(sim86: &mut Simulator8086, op_one: &mut instruction_operand, op_two: &mut instruction_operand) -> Transition {
-    let value_one = read_from_reg(sim86, op_one);
-    let value_two = unsafe { op_two.__bindgen_anon_1.Immediate.Value as u16 };
+    let src_value = Wrapping(unsafe { op_two.__bindgen_anon_1.Immediate.Value as u16 });
+    let value_before = Wrapping(read_full_reg(sim86, op_one));
+    let new_value = value_before - src_value;
 
-    let cmp_value = value_one - value_two;
-    let before = get_flag(sim86, FlagType::ZF);
-    set_flags(sim86, RegisterType::RegisterTypeFull, cmp_value);
-    let after = get_flag(sim86, FlagType::ZF);
+    write_to_reg_and_set_flags(sim86, op_one, new_value.0);
+
+    let value_after = read_full_reg(sim86, op_one);
 
     Transition {
         op: OP_CODE,
-        src: get_register_name_from_operand(op_two).to_string(),
+        src: src_value.to_string(),
         dst: get_register_name_from_operand(op_one).to_string(),
-        before: before as u16,
-        after: after as u16,
+        before: value_before.0,
+        after: value_after,
         flags: sim86.read_16(FLAG_REG_IDX),
         ip_before: sim86.read_16(IP_REG_IDX),
         ip_after: sim86.read_16(IP_REG_IDX),
