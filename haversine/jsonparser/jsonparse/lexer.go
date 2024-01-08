@@ -6,14 +6,6 @@ import (
 	"unicode"
 )
 
-/*
-{\"string\":\"value\",\"int\":5,\"float\":123.1231231233,\"null\":null,\"array\":[\"a\",\"b\"],\"obj\":{\"key\":\"value\"}}
-
-	  :
-	/   \
-   str  str
-*/
-
 func Lex(jsonStr string) []jToken {
 	jsonStr = strings.ReplaceAll(jsonStr, "\\", "")
 	var tokens []jToken

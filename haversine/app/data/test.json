@@ -3,13 +3,14 @@
     "int": 5,
     "float": 123.1231231233,
     "null": null,
-    "array": [
-        [
-
-        ],
-        [
-            
-        ]
+    "strArray": [
+        "item1",
+        "item2"
+    ],
+    "objArray": [
+        {
+            "name": "bob"
+        }
     ],
     "obj": {
         "key": "value"

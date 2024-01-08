@@ -2,19 +2,12 @@ package jsonparse
 
 import (
 	"fmt"
-	"haversine/json-parser/util"
+	"haversine/jsonparser/util"
 	"strconv"
-	"strings"
 )
 
-func Deserialize(jsonStr string) JDocument {
-	jsonStr = strings.ReplaceAll(jsonStr, " ", "")
-	jsonStr = strings.ReplaceAll(jsonStr, "\r\n", "")
-
-	fmt.Printf("Deserializing: %s\n", jsonStr)
-
+func Parse(jsonStr string) JDocument {
 	tokens := Lex(jsonStr)
-
 	return parse_document(tokens)
 }
 
@@ -155,27 +148,3 @@ func parse_kv(tokens []jToken) (JString, JToken) {
 		panic(fmt.Sprintf("Unsupported value type %d for key %s", tokens[2].Type, key.Value))
 	}
 }
-
-func print_tokens(tokens []jToken) {
-	for _, token := range tokens {
-		fmt.Printf("{ type: %d}", token.Type)
-	}
-	fmt.Print("\n")
-}
-
-/*
-JStartArray JTokenType = 0
-	JEndArray   JTokenType = 1
-	JArrayToken JTokenType = 2
-
-	JStartObject JTokenType = 3
-	JEndObject   JTokenType = 4
-	JObjectToken JTokenType = 5
-
-	JStringToken JTokenType = 6
-	JFloatToken  JTokenType = 7
-	JIntToken    JTokenType = 8
-	JColonToken  JTokenType = 9
-	JCommaToken  JTokenType = 10
-	JNullToken   JTokenType = 11
-*/
