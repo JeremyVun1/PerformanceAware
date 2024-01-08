@@ -1,0 +1,17 @@
+{
+    "string": "value",
+    "int": 5,
+    "float": 123.1231231233,
+    "null": null,
+    "array": [
+        [
+
+        ],
+        [
+            
+        ]
+    ],
+    "obj": {
+        "key": "value"
+    }
+}
