@@ -3,3 +3,7 @@ ref/
 test/
 target/
 *.exe
+*test.json
+*test*.json
+netjson/
+!profile001.pdf

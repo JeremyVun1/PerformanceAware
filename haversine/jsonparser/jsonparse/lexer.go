@@ -2,49 +2,65 @@ package jsonparse
 
 import (
 	"fmt"
-	"strings"
 	"unicode"
 )
 
-func Lex(jsonStr string) []jToken {
-	jsonStr = strings.ReplaceAll(jsonStr, "\\", "")
-	var tokens []jToken
+func Lex(inChannel *chan []byte, outChannel *chan []JToken) {
+	for {
+		data, status := <-*inChannel
+		if len(data) == 0 && !status {
+			close(*outChannel)
+			break
+		}
+
+		*outChannel <- lex(data)
+	}
+}
+
+func lex(data []byte) []JToken {
+	tokens := make([]JToken, 0, len(data))
 
 	i := 0
-	for i < len(jsonStr) {
-		c := rune(jsonStr[i])
+	for i < len(data) {
+		c := rune(data[i])
 
-		if unicode.IsDigit(c) || c == '-' || c == '+' {
-			token := parse_number(jsonStr[i:])
-			i += len(token.Value)
+		if c == 't' {
+			tokens = append(tokens, JToken{Type: JTrueToken})
+			i += 3
+		} else if c == 'f' {
+			tokens = append(tokens, JToken{Type: JFalseToken})
+			i += 4
+		} else if c == 'n' {
+			tokens = append(tokens, JToken{Type: JNullToken})
+			i += 3
+		} else if unicode.IsDigit(c) || c == '-' || c == '+' {
+			token := parse_number(data[i:])
+			i += len(token.Value) - 1
 			tokens = append(tokens, token)
 		} else if c == '"' {
-			token := parse_string(jsonStr[i:])
+			token := parse_string(data[i:])
 			i += len(token.Value) + 1
 			tokens = append(tokens, token)
-		} else if len(jsonStr[i:]) >= 4 && jsonStr[i:i+4] == "null" {
-			tokens = append(tokens, jToken{Type: JNullToken})
-			i += 4
 		} else {
 			switch c {
+			case '\n':
 			case ' ':
-				break
 			case '\\':
 				break
 			case '{':
-				tokens = append(tokens, jToken{Type: JStartObject})
+				tokens = append(tokens, JToken{Type: JStartObject})
 			case '}':
-				tokens = append(tokens, jToken{Type: JEndObject})
+				tokens = append(tokens, JToken{Type: JEndObject})
 			case '[':
-				tokens = append(tokens, jToken{Type: JStartArray})
+				tokens = append(tokens, JToken{Type: JStartArray})
 			case ']':
-				tokens = append(tokens, jToken{Type: JEndArray})
+				tokens = append(tokens, JToken{Type: JEndArray})
 			case ':':
-				tokens = append(tokens, jToken{Type: JColonToken})
+				tokens = append(tokens, JToken{Type: JColonToken})
 			case ',':
-				tokens = append(tokens, jToken{Type: JCommaToken})
+				tokens = append(tokens, JToken{Type: JCommaToken})
 			default:
-				panic(fmt.Sprintf("Unsupported character %c", c))
+				panic(fmt.Sprintf("Unsupported character '%c'", c))
 			}
 		}
 
@@ -54,30 +70,30 @@ func Lex(jsonStr string) []jToken {
 	return tokens
 }
 
-func parse_number(jsonStr string) jToken {
+func parse_number(data []byte) JToken {
 	var chars []rune
 
 	i := 0
-	c := rune(jsonStr[i])
+	c := rune(data[i])
 	isFloat := false
 	for unicode.IsDigit(c) || c == '-' || c == '+' || c == '.' {
 		if c == '.' {
 			isFloat = true
 		}
 
-		c = rune(jsonStr[i])
+		c = rune(data[i])
 		chars = append(chars, c)
 		i += 1
-		c = rune(jsonStr[i])
+		c = rune(data[i])
 	}
 
 	if isFloat {
-		return jToken{
+		return JToken{
 			Type:  JFloatToken,
 			Value: chars,
 		}
 	} else {
-		return jToken{
+		return JToken{
 			Type:  JIntToken,
 			Value: chars,
 		}
@@ -85,16 +101,16 @@ func parse_number(jsonStr string) jToken {
 
 }
 
-func parse_string(jsonStr string) jToken {
+func parse_string(data []byte) JToken {
 	var chars []rune
 	i := 0
 	isFinished := false
-	for i < len(jsonStr) {
-		c := jsonStr[i]
+	for i < len(data) {
+		c := data[i]
 
 		if c == '"' {
 			if isFinished {
-				return jToken{
+				return JToken{
 					Type:  JStringToken,
 					Value: chars,
 				}
@@ -108,5 +124,5 @@ func parse_string(jsonStr string) jToken {
 		i += 1
 	}
 
-	panic(fmt.Sprintf("Invalid string at %c '%s'", i, jsonStr))
+	panic(fmt.Sprintf("Invalid string at %c '%s'", i, data))
 }

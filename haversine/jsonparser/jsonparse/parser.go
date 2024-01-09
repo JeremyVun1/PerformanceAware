@@ -6,145 +6,121 @@ import (
 	"strconv"
 )
 
-func Parse(jsonStr string) JDocument {
-	tokens := Lex(jsonStr)
-	return parse_document(tokens)
-}
+func ParseTokens(tokenChannel *chan []JToken) JDocument {
+	emitter := NewTokenEmitter(tokenChannel)
 
-func parse_document(tokens []jToken) JDocument {
-	switch tokens[0].Type {
-	case JStartArray:
-		return JDocument{Value: parse_array(tokens)}
-	case JStartObject:
-		return JDocument{Value: parse_object(tokens)}
-	default:
-		panic(fmt.Sprintf("JsonDocument cannot hold type %d", tokens[0].Type))
+	for {
+		token, _ := emitter.Next()
+		switch token.Type {
+		case JStartArray:
+			return JDocument{Value: parse_array(emitter), tokensConsumed: emitter.count}
+		case JStartObject:
+			return JDocument{Value: parse_object(emitter), tokensConsumed: emitter.count}
+		default:
+			panic(fmt.Sprintf("JsonDocument cannot hold type %d", token.Type))
+		}
 	}
 }
 
-func parse_array(tokens []jToken) JArray {
-	if len(tokens) < 2 {
-		panic(fmt.Sprintf("Cannot parse array from %d tokens", len(tokens)))
-	}
-	if tokens[0].Type != JStartArray {
-		panic("JArray must start with a [ token")
+func parse_object(emitter *TokenEmitter) JObject {
+	result := JObject{}
+
+	token, _ := emitter.Next()
+	for token.Type != JEndObject {
+		switch token.Type {
+		case JStringToken:
+			key := JString{Value: string(token.Value)}
+			value := parse_element(emitter)
+			result.Keys = append(result.Keys, key.Value)
+			result.Values = append(result.Values, value)
+		case JCommaToken:
+			break
+		default:
+			panic(fmt.Sprintf("JObject does not support type %d", token.Type))
+		}
+
+		nextToken, _ := emitter.Next()
+		token = nextToken
 	}
 
+	return result
+}
+
+func parse_array(emitter *TokenEmitter) JArray {
 	result := JArray{}
 
-	tokens = tokens[1:]
-	i := 0
-	for i < len(tokens) {
-		token := tokens[i]
-
+	token, _ := emitter.Next()
+	for token.Type != JEndArray {
 		switch token.Type {
 		case JStringToken:
 			val := string(token.Value)
 			result.Children = append(result.Children, JString{Value: val})
-			i += 1
+		case JTrueToken:
+			result.Children = append(result.Children, JBool{Value: true})
+		case JFalseToken:
+			result.Children = append(result.Children, JBool{Value: false})
 		case JFloatToken:
 			val, err := strconv.ParseFloat(string(token.Value), 32)
 			util.Check(err)
 			result.Children = append(result.Children, JFloat{Value: float32(val)})
-			i += 1
 		case JIntToken:
 			val, err := strconv.ParseInt(string(token.Value), 10, 32)
 			util.Check(err)
 			result.Children = append(result.Children, JInt{Value: int(val)})
-			i += 1
 		case JNullToken:
 			result.Children = append(result.Children, nil)
-			i += 1
 		case JCommaToken:
-			i += 1
+			break
 		case JStartObject:
-			var token = parse_object(tokens[i:])
+			var token = parse_object(emitter)
 			result.Children = append(result.Children, token)
-			i += token.size
 		case JStartArray:
-			var token = parse_array(tokens[i:])
+			var token = parse_array(emitter)
 			result.Children = append(result.Children, token)
-			i += token.size
-		case JEndArray:
-			result.size = i + 2 // start & end tokens
-			return result
 		default:
 			panic(fmt.Sprintf("JArray does not support type %d", token.Type))
 		}
+
+		nextToken, _ := emitter.Next()
+		token = nextToken
 	}
 
 	return result
 }
 
-func parse_object(tokens []jToken) JObject {
-	if len(tokens) < 2 {
-		panic(fmt.Sprintf("Cannot parse object from %d tokens", len(tokens)))
-	}
-	if tokens[0].Type != JStartObject {
-		panic("JObject must start with a '{' token")
+func parse_element(emitter *TokenEmitter) JElement {
+	colonToken, _ := emitter.Next()
+	if colonToken.Type != JColonToken {
+		panic(fmt.Sprintf("Expected colon token but got <%d>", colonToken.Type))
 	}
 
-	result := JObject{}
-	tokens = tokens[1:]
+	valueToken, _ := emitter.Next()
 
-	i := 0
-	for i < len(tokens) {
-		token := tokens[i]
-
-		switch token.Type {
-		case JStringToken:
-			key, value := parse_kv(tokens[i:])
-			result.Keys = append(result.Keys, key.Value)
-			result.Values = append(result.Values, value)
-			if value == nil {
-				i += 2 + 1
-			} else {
-				i += 2 + value.getSize()
-			}
-		case JCommaToken:
-			i += 1
-		case JEndObject:
-			result.size = i + 2 // start & end tokens
-			return result
-		default:
-			panic(fmt.Sprintf("JObject does not support type %d", token.Type))
-		}
-	}
-
-	return result
-}
-
-func parse_kv(tokens []jToken) (JString, JToken) {
-	if len(tokens) < 3 {
-		panic(fmt.Sprintf("Cannot parse key value from %d tokens", len(tokens)))
-	}
-	if tokens[1].Type != JColonToken {
-		panic("missing : token")
-	}
-	if tokens[0].Type != JStringToken {
-		panic("key must be a string token")
-	}
-
-	key := JString{Value: string(tokens[0].Value)}
-
-	switch tokens[2].Type {
+	switch valueToken.Type {
 	case JStringToken:
-		return key, JString{Value: string(tokens[2].Value)}
+		return JString{Value: string(valueToken.Value)}
 	case JFloatToken:
-		val, err := strconv.ParseFloat(string(tokens[2].Value), 32)
+		val, err := strconv.ParseFloat(string(valueToken.Value), 32)
 		util.Check(err)
-		return key, JFloat{Value: float32(val)}
+		return JFloat{Value: float32(val)}
 	case JIntToken:
-		val, err := strconv.ParseInt(string(tokens[2].Value), 10, 32)
+		val, err := strconv.ParseInt(string(valueToken.Value), 10, 32)
 		util.Check(err)
-		return key, JInt{Value: int(val)}
+		return JInt{Value: int(val)}
 	case JNullToken:
-		return key, nil
+		return nil
 	case JStartObject:
-		return key, parse_object(tokens[2:])
+		return parse_object(emitter)
 	case JStartArray:
-		return key, parse_array(tokens[2:])
+		return parse_array(emitter)
 	default:
-		panic(fmt.Sprintf("Unsupported value type %d for key %s", tokens[2].Type, key.Value))
+		panic(fmt.Sprintf("Unexpected value type while parsing element %d", valueToken.Type))
 	}
+}
+
+func print_tokens(tokens []JToken) {
+	for _, token := range tokens {
+		fmt.Printf("{ type: %d, value: %s}", token.Type, string(token.Value))
+	}
+	fmt.Print("\n")
 }

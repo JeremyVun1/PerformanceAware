@@ -1,16 +1,15 @@
 package jsonparse
 
 import (
-	"fmt"
-	"strings"
+	"bytes"
+	"strconv"
 )
 
 /*
 Parser models
 */
-type JToken interface {
-	ToJson() string
-	getSize() int
+type JElement interface {
+	ToJson(buffer *bytes.Buffer)
 }
 
 // Value
@@ -18,97 +17,96 @@ type JString struct {
 	Value string
 }
 
-func (jString JString) ToJson() string {
-	return fmt.Sprintf("\\\"%s\\\"", jString.Value)
-}
-func (jString JString) getSize() int {
-	return 1
+func (jString JString) ToJson(buffer *bytes.Buffer) {
+	buffer.WriteString("\"" + jString.Value + "\"")
 }
 
 type JFloat struct {
 	Value float32
 }
 
-func (jFloat JFloat) ToJson() string {
-	return fmt.Sprintf("%g", jFloat.Value)
-}
-func (jFloat JFloat) getSize() int {
-	return 1
+func (jFloat JFloat) ToJson(buffer *bytes.Buffer) {
+	buffer.WriteString(strconv.FormatFloat(float64(jFloat.Value), 'f', 8, 32))
 }
 
 type JInt struct {
 	Value int
 }
 
-func (jInt JInt) ToJson() string {
-	return fmt.Sprintf("%d", jInt.Value)
+func (jInt JInt) ToJson(buffer *bytes.Buffer) {
+	buffer.WriteString(strconv.FormatInt(int64(jInt.Value), 10))
 }
-func (jInt JInt) getSize() int {
-	return 1
+
+type JBool struct {
+	Value bool
+}
+
+func (jBool JBool) ToJson(buffer *bytes.Buffer) {
+	if jBool.Value {
+		buffer.WriteString("true")
+	} else {
+		buffer.WriteString("false")
+	}
 }
 
 // Array
 type JArray struct {
-	Children []JToken
-	size     int
+	Children []JElement
 }
 
-func (jArray JArray) ToJson() string {
-	var tokens []string
-	for _, child := range jArray.Children {
+func (jArray JArray) ToJson(buffer *bytes.Buffer) {
+	buffer.WriteRune('[')
+	for i, child := range jArray.Children {
 		if child == nil {
-			tokens = append(tokens, "null")
+			buffer.WriteString("null")
 		} else {
-			tokens = append(tokens, child.ToJson())
+			child.ToJson(buffer)
+		}
+
+		if i < len(jArray.Children)-1 {
+			buffer.WriteRune(',')
 		}
 	}
-	return fmt.Sprintf("[%s]", strings.Join(tokens, ","))
-}
-func (jArray JArray) getSize() int {
-	return jArray.size
+	buffer.WriteRune(']')
 }
 
 // Object
 type JObject struct {
 	Keys   []string
-	Values []JToken
-	//Children map[string]JToken
-	size int
+	Values []JElement
 }
 
-func (jObject JObject) ToJson() string {
-	var tokens []string
+func (jObject JObject) ToJson(buffer *bytes.Buffer) {
+	buffer.WriteRune('{')
 	for i, key := range jObject.Keys {
 		value := jObject.Values[i]
 		if value != nil {
-			tokens = append(tokens, fmt.Sprintf("\\\"%s\\\":%s", key, value.ToJson()))
+			buffer.WriteString("\"" + key + "\":")
+			value.ToJson(buffer)
 		} else {
-			tokens = append(tokens, fmt.Sprintf("\\\"%s\\\":%s", key, "null"))
+			buffer.WriteString("\"" + key + "\":null")
 		}
 
+		if i < len(jObject.Keys)-1 {
+			buffer.WriteRune(',')
+		}
 	}
-	return fmt.Sprintf("{%s}", strings.Join(tokens, ","))
-}
-
-func (jObject JObject) getSize() int {
-	return jObject.size
+	buffer.WriteRune('}')
 }
 
 type JDocument struct {
-	Value JToken
+	Value          JElement
+	tokensConsumed int
 }
 
-func (jDocument JDocument) ToJson() string {
-	return jDocument.Value.ToJson()
-}
-func (jDocument JDocument) getSize() int {
-	return jDocument.Value.getSize()
+func (jDocument JDocument) ToJson(buffer *bytes.Buffer) {
+	jDocument.Value.ToJson(buffer)
 }
 
 /*
 Lexer Tokens
 */
-type jToken struct {
+type JToken struct {
 	Type  JTokenType
 	Value []rune
 }
@@ -130,4 +128,6 @@ const (
 	JColonToken  JTokenType = 9
 	JCommaToken  JTokenType = 10
 	JNullToken   JTokenType = 11
+	JTrueToken   JTokenType = 12
+	JFalseToken  JTokenType = 13
 )
