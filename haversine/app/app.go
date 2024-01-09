@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"haversine/app/generator"
+	"haversine/app/haversine"
 	"haversine/app/util"
 	"haversine/jsonparser"
 	"log"
@@ -25,7 +26,7 @@ func main() {
 	size := flag.Int("size", 100, "generator size")
 	seed := flag.Int("seed", 1, "generator seed")
 
-	parseFlag := flag.Bool("parse", true, "Parse the haversine pairs json")
+	parseFlag := flag.Bool("parse", false, "Parse the haversine pairs json")
 	processFlag := flag.Bool("process", false, "Parse and process the haversine pairs")
 	outputFlag := flag.Bool("output", false, "Write the parsed json to file")
 	golibFlag := flag.Bool("golib", false, "Deserialize using go json lib")
@@ -61,7 +62,8 @@ func main() {
 	} else if *processFlag {
 		start := time.Now()
 		go util.StreamFile(filename, 4096, &fileChannel)
-		//Process(&channel)
+		jsonObj := jsonparser.Deserialize(&fileChannel)
+		haversine.Process(&jsonObj)
 		fmt.Printf("finished Parsing in %v ms\n", time.Since(start).Milliseconds())
 	}
 }
